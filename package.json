@@ -1,8 +1,19 @@
 {
-  "name": "ai-engineering-os-monorepo",
-  "version": "1.0.0",
+  "name": "@sajja/forge-monorepo",
+  "version": "0.9.0-rc1",
   "private": true,
+  "description": "FORGE AI Engineering OS Monorepo by Sajja",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "packages/sdks/*",
+    "services/*"
+  ],
   "scripts": {
-    "test:ref-jwt": "node test-jwt.js"
+    "test": "node test-jwt.js && node test-crud.js && node test-blog.js && node test-oauth.js && node test-payment.js && node test-k8s.js && node test-bugfix.js && node test-refactor.js && node test-browser.js && node test-multirepo.js",
+    "test:ref": "npm run test",
+    "test:jwt": "node test-jwt.js",
+    "test:crud": "node test-crud.js",
+    "test:k8s": "node test-k8s.js"
   }
 }

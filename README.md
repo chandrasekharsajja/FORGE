@@ -42,27 +42,36 @@ All official packages and SDKs are published under the `@sajja` organization sco
 
 ---
 
+## 📊 Implementation Status & Maturity Matrix
+
+To provide complete transparency for contributors and developers evaluating FORGE:
+
+```text
+Architecture & Contracts    ██████████ 100% (Complete)
+Governance & RC1 Evidence   ██████████ 100% (Complete)
+Reference Implementation    ██████████ 100% (10 of 10 Verified)
+Core Runtime Engine         ███████░░░  70% (Active Release Candidate)
+Developer Platform & SDKs   █████░░░░░  50% (Active Release Candidate)
+Production Cloud Fabric     ██░░░░░░░░  20% (Post-v1.0 Roadmap)
+```
+
+---
+
 ## 🚀 Quick Start (Under 5 Minutes)
 
 ### 1. Installation
 ```bash
-git clone https://github.com/<your-username>/forge.git
-cd forge
+git clone https://github.com/chandrasekharsajja/FORGE.git
+cd FORGE
 npm install
 ```
 
-### 2. Run Reference Scenarios
-Run any of the 10 verified reference implementations:
+### 2. Run Test Suite
+Run all 10 verified reference implementation scenarios with a single command:
 ```bash
-# Run RI-001 (JWT Authentication)
-node test-jwt.js
-
-# Run RI-002 (CRUD REST API)
-node test-crud.js
-
-# Run RI-006 (Kubernetes Microservice Deployment)
-node test-k8s.js
+npm test
 ```
+
 
 ---
 
