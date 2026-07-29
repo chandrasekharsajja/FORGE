@@ -37,7 +37,10 @@ coverage/
 .nyc_output/
 *.log
 .system_generated/
+private_archive/
+.archive/
 
 # Anti-Gravity IDE & Internal State
 .gemini/
 antigravity.config.user.json
+
