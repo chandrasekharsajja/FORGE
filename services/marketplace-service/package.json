@@ -1,0 +1,6 @@
+{
+  "name": "@sajja/forge-marketplace",
+  "version": "0.9.0",
+  "description": "Capability Pack & Extension Marketplace for FORGE by Sajja",
+  "main": "src/index.ts"
+}

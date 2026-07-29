@@ -1,0 +1,6 @@
+{
+  "name": "@sajja/forge-runtime",
+  "version": "0.9.0",
+  "description": "Platform Runtime, Mission Runtime & Capability Fabric for FORGE by Sajja",
+  "main": "src/index.ts"
+}

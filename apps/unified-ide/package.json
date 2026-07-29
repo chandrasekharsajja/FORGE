@@ -1,0 +1,6 @@
+{
+  "name": "@sajja/forge-studio",
+  "version": "0.9.0",
+  "description": "Unified Web & Desktop IDE for FORGE by Sajja",
+  "private": true
+}

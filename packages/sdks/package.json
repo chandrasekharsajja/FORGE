@@ -1,0 +1,6 @@
+{
+  "name": "@sajja/forge-sdk",
+  "version": "0.9.0",
+  "description": "Unified Developer SDK Suite for FORGE by Sajja",
+  "main": "src/index.ts"
+}

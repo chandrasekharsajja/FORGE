@@ -1,0 +1,6 @@
+{
+  "name": "@sajja/forge-enterprise",
+  "version": "0.9.0",
+  "description": "Enterprise SSO, Audit Compliance & Governance Platform for FORGE by Sajja",
+  "main": "src/index.ts"
+}
