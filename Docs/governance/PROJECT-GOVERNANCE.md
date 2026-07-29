@@ -1,6 +1,6 @@
-# Post-v1.0 Long-Term Project Governance & Stewardship Charter
+# Post-v1.0 Project Governance & Stewardship Charter
 
-This document establishes the **Post-v1.0 Project Governance Charter**, **Deprecation & Compatibility Guarantees**, **Security Response Protocol**, and **Architectural RFC Process** for the Aurexon AI Engineering Operating System.
+This document establishes the **Post-v1.0 Project Governance Charter**, **Deprecation & Compatibility Guarantees**, **Security Response Protocol**, and **Architectural RFC Process** for the FORGE AI Engineering Operating System by Sajja.
 
 ---
 
@@ -14,7 +14,7 @@ This document establishes the **Post-v1.0 Project Governance Charter**, **Deprec
 
 ## 2. Deprecation & Compatibility Guarantees
 
-- **Contract Stability Guarantee**: Contracts in `@platform/contracts` and SDKs (`@platform/sdk-*`) are strictly backwards-compatible throughout all `v1.X.X` minor releases.
+- **Contract Stability Guarantee**: Contracts in `@sajja/forge-contracts` and SDKs (`@sajja/forge-sdk-*`) are strictly backwards-compatible throughout all `v1.X.X` minor releases.
 - **Deprecation Policy**: Any API or contract marked `@deprecated` in `v1.X` MUST remain functional until `v2.0.0`.
 - **Migration Documentation**: Deprecated APIs require published migration guides and automated code-mod tooling.
 
@@ -40,7 +40,7 @@ To prevent architectural drift while allowing deliberate platform evolution, cor
 
 ## 4. Security Response Protocol
 
-- **Vulnerability Reporting**: Security reports sent to `security@aurexon.ai` acknowledged within 24 hours.
+- **Vulnerability Reporting**: Security reports sent to `security@sajja.ai` acknowledged within 24 hours.
 - **Remediation Priority**: Critical security vulnerabilities take immediate precedence over feature development.
 - **Public Advisories**: CVE / GitHub Security Advisories published alongside patch releases.
 
@@ -55,6 +55,6 @@ Platform Creation (Complete) ──► Hardening & RC1 ──► v1.0.0 Stable L
 Post-v1.0 Stewardship Phase ◄────── [LONG-TERM OPERATIONAL STAGE]
    ├── 1. Platform Uptime & Telemetry Reliability
    ├── 2. Ecosystem Capability Marketplace Stewardship
-   ├── 3. Enterprise Adoption & Security Compliance
-   └── 4. Long-Term Architectural RFC Evolution (v2.0 Fabric)
+   ├── 3. Enterprise Adoption & Compliance (SSO, Audit Logs, Multi-Region)
+   └── 4. Long-Term Architectural RFC Evolution (v2.0 Distributed Mission Fabric)
 ```

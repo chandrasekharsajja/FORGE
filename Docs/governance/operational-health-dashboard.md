@@ -1,12 +1,12 @@
-# Aurexon AI OS Daily Operational Health Dashboard
+# FORGE AI OS Daily Operational Health Dashboard
 
-This document defines the daily operational telemetry signals, health check queries, and maintainer SLA metrics for the **Aurexon AI Engineering Operating System**.
+This document defines the daily operational telemetry signals, health check queries, and maintainer SLA metrics for the **FORGE AI Engineering Operating System** by Sajja.
 
 ---
 
 ## ☀️ Daily Operational Telemetry Signals
 
-The morning operational health check answers one fundamental question: **"Is Aurexon healthy today?"**
+The morning operational health check answers one fundamental question: **"Is FORGE healthy today?"**
 
 | Health Domain | Telemetry Signal / Metric | Target SLA / Operational Threshold | Alert Trigger |
 | :--- | :--- | :--- | :--- |
