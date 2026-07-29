@@ -24,12 +24,11 @@ jobs:
     - name: Install Monorepo Dependencies
       run: npm install
 
-    - name: Run Full 10-Point Reference Implementation Test Suite
+    - name: Run Reference Implementation Test Suite
       run: npm test
 
-    - name: Verify Package Contracts & Build Output
-      run: |
-        npm run --workspaces build --if-present || true
+    - name: Verify Package Builds
+      run: npm run --workspaces build --if-present
 
-    - name: Dependency Audit & Security Scan
-      run: npm audit --audit-level=high || true
+    - name: Dependency Security Audit
+      run: npm audit --audit-level=high
