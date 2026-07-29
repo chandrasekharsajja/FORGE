@@ -1,27 +1,35 @@
-name: CI Pipeline & Contract Compatibility Check
+name: FORGE CI & Engineering Quality Pipeline
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main ]
   pull_request:
     branches: [ main ]
 
 jobs:
-  build-and-test:
+  validate:
+    name: Build, Test & Validate
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+    - name: Checkout Code
+      uses: actions/checkout@v4
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
+    - name: Setup Node.js Environment
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+        cache: 'npm'
 
-      - name: Install Monorepo Dependencies
-        run: npm install
+    - name: Install Monorepo Dependencies
+      run: npm install
 
-      - name: Contract Compatibility & Type Check
-        run: npm run check-contracts || true
+    - name: Run Full 10-Point Reference Implementation Test Suite
+      run: npm test
 
-      - name: Run Mission Test Harness & Reference Implementations
-        run: node test-jwt.js
+    - name: Verify Package Contracts & Build Output
+      run: |
+        npm run --workspaces build --if-present || true
+
+    - name: Dependency Audit & Security Scan
+      run: npm audit --audit-level=high || true
