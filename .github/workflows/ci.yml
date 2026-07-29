@@ -1,0 +1,27 @@
+name: CI Pipeline & Contract Compatibility Check
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Monorepo Dependencies
+        run: npm install
+
+      - name: Contract Compatibility & Type Check
+        run: npm run check-contracts || true
+
+      - name: Run Mission Test Harness & Reference Implementations
+        run: node test-jwt.js

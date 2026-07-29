@@ -1,0 +1,43 @@
+# macOS & System files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Node.js & Package Managers
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-debug.log*
+
+# Build Outputs & Distributables
+dist/
+build/
+out/
+*.tsbuildinfo
+
+# Environment & Secret Files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.pem
+*.key
+credentials.json
+secrets.yaml
+
+# Testing & Harness Temporary State
+coverage/
+.nyc_output/
+*.log
+.system_generated/
+
+# Anti-Gravity IDE & Internal State
+.gemini/
+antigravity.config.user.json

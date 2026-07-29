@@ -1,0 +1,10 @@
+{
+  "name": "@platform/contracts",
+  "version": "0.1.0",
+  "description": "Architectural contracts, schemas, and interfaces for the AI Engineering Operating System",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "missionId": "mission-jwt-auth",
+  "expectedDagNodes": 4,
+  "expectedArtifacts": ["src/auth/jwt.ts", "src/auth/middleware.ts"],
+  "policyPassed": true,
+  "minQualityScore": 0.90,
+  "simulatedOutput": true
+}

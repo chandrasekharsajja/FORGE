@@ -1,0 +1,9 @@
+{
+  "name": "@platform/security",
+  "version": "0.1.0",
+  "description": "SAST and security analysis utilities combining Semgrep, CodeQL, and Trivy",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc"
+  }
+}

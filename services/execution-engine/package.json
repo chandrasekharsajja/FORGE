@@ -1,0 +1,12 @@
+{
+  "name": "@platform/execution-engine",
+  "version": "0.1.0",
+  "description": "Secure microVM and container sandbox runner",
+  "main": "dist/index.js",
+  "scripts": {
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "dockerode": "^4.0.2"
+  }
+}

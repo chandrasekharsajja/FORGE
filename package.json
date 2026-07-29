@@ -1,0 +1,8 @@
+{
+  "name": "ai-engineering-os-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "test:ref-jwt": "node test-jwt.js"
+  }
+}

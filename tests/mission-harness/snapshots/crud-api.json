@@ -1,0 +1,8 @@
+{
+  "missionId": "mission-crud-api",
+  "expectedDagNodes": 5,
+  "expectedArtifacts": ["src/routes/users.ts", "src/models/user.ts", "src/controllers/userController.ts"],
+  "policyPassed": true,
+  "minQualityScore": 0.92,
+  "simulatedOutput": true
+}

@@ -1,0 +1,9 @@
+{
+  "name": "@platform/event-bus",
+  "version": "0.1.0",
+  "description": "NATS event bus service for agent event streaming",
+  "main": "dist/index.js",
+  "dependencies": {
+    "nats": "^2.28.0"
+  }
+}
