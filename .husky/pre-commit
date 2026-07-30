@@ -1,0 +1,31 @@
+#!/bin/sh
+.HUSKY_HUSKY_HOOK
+
+echo "Running comprehensive pre-commit hooks..."
+
+# 1. Run lint-staged for formatting and linting
+npx lint-staged
+
+if [ $? -ne 0 ]; then
+  echo "❌ Linting or formatting failed!"
+  exit 1
+fi
+
+# 2. Run TypeScript type checking
+npm run type-check
+
+if [ $? -ne 0 ]; then
+  echo "❌ Type checking failed!"
+  exit 1
+fi
+
+# 3. Run security scan for secrets/hardcoded credentials
+node .husky/pre-commit-security-hook.js
+
+if [ $? -ne 0 ]; then
+  echo "❌ Security check failed - sensitive data detected"
+  exit 1
+fi
+
+echo "✅ All pre-commit checks passed!"
+exit 0

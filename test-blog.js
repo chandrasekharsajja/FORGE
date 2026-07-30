@@ -1,104 +1,69 @@
-class PlatformRuntime {
-  async createSession(userId, orgId) {
-    return { sessionId: 'sess-' + Date.now(), userId, organizationId: orgId, role: 'developer' };
-  }
-}
+const test = require('node:test');
+const { assert, load } = require('./test-support');
 
-class MissionDAGPlanner {
-  async buildParallelDAG(goal) {
-    return [
-      { id: '1', name: 'System Architecture & Schema', agentRole: 'architect' },
-      { id: '2a', name: 'Backend GraphQL & REST API', agentRole: 'backend' },
-      { id: '2b', name: 'Next.js Frontend & Styling', agentRole: 'frontend' },
-      { id: '2c', name: 'PostgreSQL Database Schema', agentRole: 'database' },
-      { id: '3', name: 'Docling Spec Generation', agentRole: 'documentation' },
-      { id: '4', name: 'End-to-End QA Testing', agentRole: 'qa' }
-    ];
-  }
-}
+test('blog scenario wires registries, models, workflow, and tools', async () => {
+  const [
+    { EngineeringIntelligenceDashboard },
+    { ModelRegistry },
+    { createWorkflow },
+    { createAgent },
+    { createTool },
+    { AgentRegistry },
+    { ToolRegistry },
+  ] = await Promise.all([
+    load('./services/intelligence-dashboard/src/index.ts'),
+    load('./packages/model-registry/src/index.ts'),
+    load('./packages/sdks/sdk-workflow/src/index.ts'),
+    load('./packages/sdks/sdk-agent/src/index.ts'),
+    load('./packages/sdks/sdk-tool/src/index.ts'),
+    load('./packages/agent-registry/src/index.ts'),
+    load('./packages/tool-registry/src/index.ts'),
+  ]);
 
-class PolicyEngine {
-  async evaluateAction(action) {
-    return { allowed: true };
-  }
-}
+  const dashboard = new EngineeringIntelligenceDashboard();
+  const metrics = await dashboard.getMetrics('workspace-public');
+  assert.equal(metrics.totalMissions, 142);
+  assert.ok(metrics.aiAcceptanceRate > 0.9);
+  assert.ok(metrics.technicalDebtScore > 90);
 
-class CapabilityFabric {
-  registerCapability(cap) {
-    console.log('[Capability Fabric] Registered Capability:', cap.name);
-  }
-}
+  const modelRegistry = new ModelRegistry();
+  assert.equal(modelRegistry.selectBestModelForTask('coding')?.id, 'qwen3-coder');
 
-class FleetScheduler {
-  async scheduleMissionTask(mission, taskName) {
-    return { nodeId: 'worker-gpu-1', nodeType: 'gpu_node' };
-  }
-}
+  const workflow = createWorkflow({
+    id: 'blog-pipeline',
+    name: 'Blog publishing workflow',
+    steps: [
+      { id: 'draft', name: 'Draft post', agentRole: 'planner' },
+      { id: 'review', name: 'Review copy', agentRole: 'reviewer', dependencies: ['draft'] },
+      { id: 'publish', name: 'Publish post', agentRole: 'coder', dependencies: ['review'] },
+    ],
+  });
+  assert.equal(workflow.buildDAG().length, 3);
 
-class MissionRuntime {
-  async executeMission(m) {
-    console.log(`[Mission Runtime] Executing Mission [${m.id}]: ${m.title}`);
-  }
-}
+  const agent = createAgent({
+    role: 'blog-writer',
+    systemPrompt: 'Write concise engineering updates',
+    allowedTools: ['render_preview'],
+    supportedModels: ['qwen3-coder'],
+  });
+  const tool = createTool({
+    name: 'render_preview',
+    description: 'Render a blog preview',
+    parametersSchema: { type: 'object', properties: {} },
+    handler: async (args) => ({ ok: true, input: args }),
+  });
 
-class ArtifactService {
-  async storeArtifact(art) {
-    console.log(`[Artifact Service] Stored versioned artifact: ${art.path}`);
-  }
-}
+  const agentRegistry = new AgentRegistry();
+  agentRegistry.registerAgent('writer', agent);
+  assert.equal(agentRegistry.getAgent('writer'), agent);
 
-class EvaluationEngine {
-  async evaluateMissionOutput(id, out) {
-    return { pass: true, score: 0.95 };
-  }
-}
+  const toolRegistry = new ToolRegistry();
+  toolRegistry.registerTool('render_preview', tool);
+  assert.equal(toolRegistry.getTool('render_preview'), tool);
 
-class ProvenanceTracker {
-  recordProvenance(rec) {
-    console.log(`[Provenance Engine] Sealed immutable lineage signature: ${rec.signature}`);
-  }
-}
+  const stepResult = await agent.executeStep({ topic: 'blog launch' });
+  assert.equal(stepResult.status, 'success');
 
-async function runBlogPlatformTest() {
-  console.log("=========================================================");
-  console.log("RUNNING REFERENCE IMPLEMENTATION #3: BLOG PLATFORM (RI-003)");
-  console.log("=========================================================\n");
-
-  const platform = new PlatformRuntime();
-  const session = await platform.createSession('dev-user-3', 'org-aurexon');
-  console.log(`[Step 1]: Created Session ${session.sessionId}`);
-
-  const planner = new MissionDAGPlanner();
-  const dag = await planner.buildParallelDAG('Build Full Stack Blog Platform');
-  console.log(`[Step 2]: Generated ${dag.length}-node execution DAG across parallel frontend/backend branches.`);
-
-  const policyEngine = new PolicyEngine();
-  await policyEngine.evaluateAction('execute_blog_dag');
-  console.log(`[Step 3]: Governance Policy checks PASSED.`);
-
-  const fabric = new CapabilityFabric();
-  fabric.registerCapability({ id: 'cap-blog', name: 'Full Stack Blog Generator', type: 'workflow' });
-
-  const scheduler = new FleetScheduler();
-  const workerNode = await scheduler.scheduleMissionTask({ id: 'm-blog' }, 'Frontend/Backend Coordination');
-  console.log(`[Step 4]: Placed workload on ${workerNode.nodeId} (${workerNode.nodeType}).`);
-
-  const missionRuntime = new MissionRuntime();
-  await missionRuntime.executeMission({ id: 'm-blog', title: 'Full Stack Blog Platform', goal: 'Build Next.js + GraphQL Blog' });
-
-  const artifactService = new ArtifactService();
-  await artifactService.storeArtifact({ id: 'art-blog-1', path: 'apps/web/src/pages/index.tsx' });
-
-  const evaluator = new EvaluationEngine();
-  const evalResult = await evaluator.evaluateMissionOutput('m-blog', {});
-  console.log(`[Step 5]: Evaluation quality score: ${evalResult.score * 100}%`);
-
-  const provenance = new ProvenanceTracker();
-  provenance.recordProvenance({ artifactId: 'art-blog-1', signature: 'sig-sha256-blog-verified' });
-
-  console.log("\n=========================================================");
-  console.log("RI-003: BLOG PLATFORM EXECUTED SUCCESSFULLY ✅");
-  console.log("=========================================================");
-}
-
-runBlogPlatformTest();
+  const toolResult = await tool.execute({ title: 'Blog launch' });
+  assert.equal(toolResult.ok, true);
+});

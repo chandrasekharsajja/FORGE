@@ -1,15 +1,82 @@
-import React from 'react';
+'use client';
 
-export function TerminalPanel() {
+import { useState } from 'react';
+import type {
+  ArtifactCard,
+  VerificationCheck,
+} from '../../lib/dashboard-data';
+
+type TerminalTab = 'terminal' | 'checks' | 'artifacts';
+
+export function TerminalPanel({
+  terminalLines,
+  verificationChecks,
+  generatedArtifacts,
+}: {
+  terminalLines: string[];
+  verificationChecks: VerificationCheck[];
+  generatedArtifacts: ArtifactCard[];
+}) {
+  const [activeTab, setActiveTab] = useState<TerminalTab>('terminal');
+
   return (
-    <div style={{ height: '180px', background: '#181818', borderTop: '1px solid #333', color: '#00ff00', fontFamily: 'monospace', padding: '8px', fontSize: '13px' }}>
-      <div style={{ color: '#888', marginBottom: '4px' }}>xterm.js Integrated Terminal & MicroVM Sandbox Stream</div>
-      <div>platform-dev@ai-os:~$ docker-compose -f deploy/docker-compose.yml up -d</div>
-      <div style={{ color: '#aaa' }}>[+] Running 5/5</div>
-      <div style={{ color: '#aaa' }}> ✔ Container ai_platform_postgres Started</div>
-      <div style={{ color: '#aaa' }}> ✔ Container ai_platform_redis Started</div>
-      <div style={{ color: '#aaa' }}> ✔ Container ai_platform_qdrant Started</div>
-      <div>platform-dev@ai-os:~$ <span style={{ animation: 'blink 1s infinite' }}>_</span></div>
-    </div>
+    <section className="panel terminal-shell">
+      <div className="terminal-frame">
+        <div className="panel-header">
+          <div>
+            <span className="eyebrow">Validation lane</span>
+            <h2>Terminal and checks</h2>
+          </div>
+          <span>Reference suite plus workspace signals</span>
+        </div>
+
+        <div className="terminal-tabs" aria-label="Terminal views">
+          {(['terminal', 'checks', 'artifacts'] as TerminalTab[]).map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              className={`tab-button ${activeTab === tab ? 'tab-active' : ''}`}
+              onClick={() => setActiveTab(tab)}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === 'terminal' ? (
+          <div className="terminal-output" role="log" aria-live="polite">
+            <pre>{terminalLines.join('\n')}</pre>
+          </div>
+        ) : null}
+
+        {activeTab === 'checks' ? (
+          <ul className="verification-list">
+            {verificationChecks.map((check) => (
+              <li key={check.name} className="verification-item">
+                <div>
+                  <strong>{check.name}</strong>
+                  <p>{check.detail}</p>
+                </div>
+                <span className={`status-chip status-${check.status}`}>{check.status}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+
+        {activeTab === 'artifacts' ? (
+          <ul className="artifact-list">
+            {generatedArtifacts.map((artifact) => (
+              <li key={artifact.name} className="artifact-item">
+                <div>
+                  <strong>{artifact.name}</strong>
+                  <p>{artifact.detail}</p>
+                </div>
+                <span>{artifact.type}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+    </section>
   );
 }

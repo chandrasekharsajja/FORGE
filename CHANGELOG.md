@@ -34,6 +34,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - fix: clean CI workflow YAML, enforce strict exit codes, add TS strict flags (**987948e)
 
+### Testing Additions
+
+- test: dummy change for testing (**2c076a6)
+
 ### Maintenance
 
 - chore: remove internal planning files from public repository and gitignore private archives (**5f84679)

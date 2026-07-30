@@ -1,0 +1,33 @@
+#!/bin/bash
+COMMIT_MSG_FILE="$1"
+if [ -z "$COMMIT_MSG_FILE" ] || [ ! -f "$COMMIT_MSG_FILE" ]; then
+  exit 0
+fi
+
+COMMIT_MSG=$(cat "$COMMIT_MSG_FILE")
+
+# Check for empty message
+if [ -z "$COMMIT_MSG" ]; then
+  echo "❌ Commit message cannot be empty."
+  exit 1
+fi
+
+# Validate Conventional Commits format: type(scope): description OR type: description
+if ! echo "$COMMIT_MSG" | grep -qE '^(build|feat|docs|style|refactor|test|chore|fix|perf|ci|revert)(\([^)]*\))?\s*:'; then
+  echo "❌ Invalid commit message format."
+  echo ""
+  echo "Please use Conventional Commits format:"
+  echo "  <type>(optional scope): <description>"
+  echo ""
+  echo "Valid types: build, feat, docs, style, refactor, test, chore, fix, perf, ci, revert"
+  echo ""
+  echo "Examples:"
+  echo "  feat: add new authentication service"
+  echo "  feat(auth): add OAuth2 support"
+  echo "  fix: resolve memory leak in policy engine"
+  echo "  build: update dependencies for v1.0"
+  echo "  docs: update contribution guide"
+  exit 1
+fi
+
+echo "✅ Commit message follows Conventional Commits format"

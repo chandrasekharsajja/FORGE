@@ -1,0 +1,89 @@
+# FORGE OpenTelemetry Collector Configuration
+# Production-grade observability pipeline for metrics, logs, and traces
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: "0.0.0.0:4317"
+      http:
+        endpoint: "0.0.0.0:4318"
+
+  # Direct Prometheus endpoint scraping (for services that expose /metrics)
+  prometheus:
+    configs:
+      - name: forgeservices
+        scrape_configs:
+          - job_name: 'forge-services'
+            static_configs:
+              - 'http://localhost:8889'  # Metrics service endpoint
+            scrape_interval: 15s
+            timeout: 10s
+
+processors:
+  batch:
+    timeout: 10s
+    send_batch_size: 1000
+    send_batch_max_size: 1024
+
+  # Add resource attributes from environment
+  resourcedata:
+    resource_attributes:
+      service.name:
+        type: string
+        value: "forge-platform"
+      service.instance.id:
+        type: string
+        attributeSource: "resource_attribute"
+        value: "${HOSTNAME}"
+      cloud.provider:
+        type: string
+        value: "self-hosted"
+
+  memory_limiter:
+    limit_mib: 2040  # Reserve some memory for other processes
+
+  tail_sampling:
+    policies:
+      - name: success-traces
+        test:
+          logrecord_selector:
+            sample_decision: "SUCCESS"
+      - name: error-rate
+        test:
+          span_state:
+            has_error: true
+
+exporters:
+  # Export to Prometheus for Grafana scraping
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+    namespace: "forge"
+
+  # Export to OTLP-compatible backend (Jaeger/Tempo/Loki)
+  otempush:
+    endpoint: "jaeger:4317"  # Change to your OTel collector endpoint
+    tls:
+      use_tls: false
+
+  # Log output for debugging
+  logging:
+    loglevel: info
+    #logSampleRate: 0.1  # Sample 10% of traces in development
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch, tail_sampling]
+      exporters: [otempush, logging]
+    
+    metrics:
+      receivers: [otlp, prometheus]
+      processors: [batch, memory_limiter]
+      exporters: [prometheus, logging]
+
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [logging]

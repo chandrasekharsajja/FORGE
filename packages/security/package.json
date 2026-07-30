@@ -1,9 +1,23 @@
 {
-  "name": "@platform/security",
+  "name": "@sajja/forge-security",
   "version": "0.1.0",
-  "description": "SAST and security analysis utilities combining Semgrep, CodeQL, and Trivy",
+  "description": "Security utilities, authentication providers, and encryption at rest for FORGE",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc"
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "node test-support.js"
+  },
+  "dependencies": {
+    "@platform/runtime": "^0.9.0",
+    "@platform/memory-service": "^0.9.0",
+    "@sajja/forge-contracts": "^0.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0",
+    "samlify": "^3.0.0",
+    "xml-crypto": "^2.0.0"
   }
 }

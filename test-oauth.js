@@ -1,103 +1,52 @@
-class PlatformRuntime {
-  async createSession(userId, orgId) {
-    return { sessionId: 'sess-' + Date.now(), userId, organizationId: orgId, role: 'developer' };
-  }
-}
+const test = require('node:test');
+const { assert, load } = require('./test-support');
 
-class MissionDAGPlanner {
-  async buildParallelDAG(goal) {
-    return [
-      { id: '1', name: 'OAuth Identity Provider Setup', agentRole: 'architect' },
-      { id: '2a', name: 'Vault Secret Masking & Key Storage', agentRole: 'security' },
-      { id: '2b', name: 'OAuth Redirect & Callback Handlers', agentRole: 'backend' },
-      { id: '3', name: 'Token Lifecycle Audit & Evaluation', agentRole: 'qa' }
-    ];
-  }
-}
+test('oauth scenario enforces policy, governance, security, and capacity', async () => {
+  const [
+    { PolicyEngine },
+    { GovernanceControlPlane },
+    { SecurityScanner },
+    { ResourceManager },
+    { CapabilityFabric },
+    { createCapability },
+  ] = await Promise.all([
+    load('./services/policy-engine/src/index.ts'),
+    load('./services/governance-service/src/index.ts'),
+    load('./packages/security/src/index.ts'),
+    load('./services/resource-manager/src/index.ts'),
+    load('./packages/capability-fabric/src/index.ts'),
+    load('./packages/sdks/sdk-capability/src/index.ts'),
+  ]);
 
-class PolicyEngine {
-  async evaluateAction(action, meta) {
-    console.log(`[Policy Engine] Enforcing Secret Isolation Policy & OAuth Token Lifecycle...`);
-    return { allowed: true };
-  }
-}
+  const policy = new PolicyEngine();
+  const blocked = await policy.evaluateAction('deploy_prod_oauth_login');
+  assert.equal(blocked.allowed, false);
+  assert.match(blocked.reason, /Human approval required/);
 
-class CapabilityFabric {
-  registerCapability(cap) {
-    console.log('[Capability Fabric] Registered Capability:', cap.name);
-  }
-}
+  const governance = new GovernanceControlPlane();
+  const permitted = await governance.validateOrgPolicy('org-aurexon', 'oauth_login', 24);
+  assert.equal(permitted.allowed, true);
+  const expensive = await governance.validateOrgPolicy('org-aurexon', 'oauth_login', 60);
+  assert.equal(expensive.allowed, false);
+  assert.match(expensive.reason, /approval threshold/i);
 
-class FleetScheduler {
-  async scheduleMissionTask(mission, taskName) {
-    return { nodeId: 'worker-sandbox-1', nodeType: 'sandbox_cluster' };
-  }
-}
+  const security = new SecurityScanner();
+  const findings = await security.scanRepository(process.cwd());
+  assert.equal(findings.length, 0);
+  assert.equal(await security.checkSecretLeaks('const token = "forge-public-preview";'), false);
 
-class MissionRuntime {
-  async executeMission(m) {
-    console.log(`[Mission Runtime] Executing Mission [${m.id}]: ${m.title}`);
-  }
-}
-
-class ArtifactService {
-  async storeArtifact(art) {
-    console.log(`[Artifact Service] Stored versioned artifact: ${art.path}`);
-  }
-}
-
-class EvaluationEngine {
-  async evaluateMissionOutput(id, out) {
-    return { pass: true, score: 0.97 };
-  }
-}
-
-class ProvenanceTracker {
-  recordProvenance(rec) {
-    console.log(`[Provenance Engine] Sealed immutable lineage signature: ${rec.signature}`);
-  }
-}
-
-async function runOAuthLoginTest() {
-  console.log("=========================================================");
-  console.log("RUNNING REFERENCE IMPLEMENTATION #4: OAUTH LOGIN (RI-004)");
-  console.log("=========================================================\n");
-
-  const platform = new PlatformRuntime();
-  const session = await platform.createSession('dev-user-4', 'org-aurexon');
-  console.log(`[Step 1]: Created Session ${session.sessionId}`);
-
-  const planner = new MissionDAGPlanner();
-  const dag = await planner.buildParallelDAG('Implement OAuth Login Integration');
-  console.log(`[Step 2]: Generated ${dag.length}-node OAuth execution DAG.`);
-
-  const policyEngine = new PolicyEngine();
-  await policyEngine.evaluateAction('execute_oauth_dag');
-  console.log(`[Step 3]: Secret Isolation & Governance Policy checks PASSED.`);
+  const resources = new ResourceManager();
+  assert.equal(await resources.checkCapacity(250000, true), true);
 
   const fabric = new CapabilityFabric();
-  fabric.registerCapability({ id: 'cap-oauth', name: 'OAuth Identity Capability', type: 'agent' });
-
-  const scheduler = new FleetScheduler();
-  const workerNode = await scheduler.scheduleMissionTask({ id: 'm-oauth' }, 'Vault Secret Integration');
-  console.log(`[Step 4]: Placed workload on ${workerNode.nodeId} (${workerNode.nodeType}).`);
-
-  const missionRuntime = new MissionRuntime();
-  await missionRuntime.executeMission({ id: 'm-oauth', title: 'OAuth Login Integration', goal: 'Vault Secret Masking & OAuth Handlers' });
-
-  const artifactService = new ArtifactService();
-  await artifactService.storeArtifact({ id: 'art-oauth-1', path: 'src/auth/oauth.ts' });
-
-  const evaluator = new EvaluationEngine();
-  const evalResult = await evaluator.evaluateMissionOutput('m-oauth', {});
-  console.log(`[Step 5]: Security Evaluation passed with score: ${evalResult.score * 100}%`);
-
-  const provenance = new ProvenanceTracker();
-  provenance.recordProvenance({ artifactId: 'art-oauth-1', signature: 'sig-sha256-oauth-verified' });
-
-  console.log("\n=========================================================");
-  console.log("RI-004: OAUTH LOGIN EXECUTED SUCCESSFULLY ✅");
-  console.log("=========================================================");
-}
-
-runOAuthLoginTest();
+  fabric.registerCapability(
+    createCapability({
+      id: 'cap-oauth',
+      name: 'OAuth Identity Capability',
+      type: 'agent',
+      version: '1.0.0',
+      execute: async () => ({ status: 'ok' }),
+    }),
+  );
+  assert.equal(fabric.discoverCapabilities().length, 1);
+});

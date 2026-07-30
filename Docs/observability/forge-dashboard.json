@@ -1,0 +1,33 @@
+{
+  "title": "FORGE Platform Observations",
+  "panels": [
+    {
+      "type": "stat",
+      "title": "API Requests per Second",
+      "field": {
+        "field": "rate(http_requests_total[5m])"
+      },
+      "targets": [{
+        "expr": "rate(http_requests_total{job=\"forge-api\"}[5m})",
+        "format": "time_series"
+      }]
+    },
+    {
+      "type": "graph",
+      "title": "Mission Planning Latency",
+      "yaxis": {
+        "format": "ms",
+        "min": 0
+      },
+      "targets": [{
+        "expr": "histogram_quantile(0.95, sum(by(le) (mission_planning_latency_bucket)) by(job))",
+        "legend": "{{job}} - p95"
+      }]
+    }
+  ],
+  "refresh": "10s",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  }
+}

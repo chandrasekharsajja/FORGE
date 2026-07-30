@@ -1,17 +1,33 @@
 {
-  "name": "@platform/core-agent",
-  "version": "0.1.0",
-  "description": "LangGraph autonomous agent definitions and state management",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "name": "@sajja/forge-core-agent",
+  "version": "1.0.0",
+  "description": "LangGraph autonomous agent definitions and state management for FORGE by Sajja",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "tsc"
+    "build": "tsc --build",
+    "dev": "ts-node-dev src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@langchain/core": "^0.3.0",
-    "@langchain/langgraph": "^0.2.0"
+    "@langchain/langgraph": "^0.2.0",
+    "@platform/memory-service": "^0.1.0",
+    "@platform/policy-engine": "^0.1.0",
+    "@platform/artifact-service": "^0.1.0",
+    "@platform/workspace-service": "^0.1.0",
+    "@platform/event-bus": "^0.1.0",
+    "@sajja/forge-contracts": "^0.9.0-rc1",
+    "uuid": "^9.0.1"
   },
   "devDependencies": {
-    "typescript": "^5.5.0"
+    "ts-node-dev": "^2.3.0",
+    "typescript": "^5.5.0",
+    "vitest": "^1.6.0",
+    "@testing-library/react": "^14.0.0",
+    "@testing-library/jest-dom": "^6.0.0",
+    "eslint-plugin-vitest": "^0.11.0"
   }
 }

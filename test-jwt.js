@@ -1,129 +1,113 @@
-const path = require('path');
+const test = require('node:test');
+const { assert, load } = require('./test-support');
 
-// Mock module loader for TS modules in pure Node runtime test
-class PlatformRuntime {
-  async createSession(userId, orgId) {
-    return { sessionId: 'sess-' + Date.now(), userId, organizationId: orgId, role: 'developer' };
-  }
-}
-
-class MissionDAGPlanner {
-  async buildParallelDAG(goal) {
-    return [
-      { id: '1', name: 'System Architecture Design', agentRole: 'architect' },
-      { id: '2a', name: 'Backend JWT Implementation', agentRole: 'backend' },
-      { id: '2b', name: 'Frontend Auth UI', agentRole: 'frontend' },
-      { id: '3', name: 'Integration & SAST Audit', agentRole: 'security' }
-    ];
-  }
-}
-
-class PolicyEngine {
-  async evaluateAction(action, meta) {
-    return { allowed: true };
-  }
-}
-
-class CapabilityFabric {
-  registerCapability(cap) {
-    console.log('[Capability Fabric] Registered Unified Capability:', cap.name);
-  }
-}
-
-class FleetScheduler {
-  async scheduleMissionTask(mission, taskName) {
-    return { nodeId: 'worker-node-1', nodeType: 'cloud_worker' };
-  }
-}
-
-class MissionRuntime {
-  async executeMission(m) {
-    console.log(`[Mission Runtime] Running Mission [${m.id}]: ${m.title}`);
-  }
-}
-
-class ArtifactService {
-  async storeArtifact(art) {
-    console.log(`[Artifact Service] Stored versioned artifact: ${art.path}`);
-  }
-}
-
-class EvaluationEngine {
-  async evaluateMissionOutput(id, out) {
-    return { pass: true, score: 0.96 };
-  }
-}
-
-class ProvenanceTracker {
-  recordProvenance(rec) {
-    console.log(`[Provenance Engine] Sealed immutable lineage signature: ${rec.signature}`);
-  }
-}
-
-class ControlPlaneBrain {
-  async getDigitalTwinState(orgId) {
-    return { globalKnowledgeNodes: 45200 };
-  }
-}
-
-async function runJWTAuthTest() {
-  console.log("=========================================================");
-  console.log("RUNNING REFERENCE IMPLEMENTATION #1: JWT AUTHENTICATION");
-  console.log("=========================================================\n");
+test('jwt mission flow uses the live platform, planner, and provenance services', async () => {
+  const [
+    { PlatformRuntime },
+    { MissionDAGPlanner },
+    { PolicyEngine },
+    { CapabilityFabric },
+    { createCapability },
+    { FleetScheduler },
+    { MissionRuntime },
+    { ArtifactService },
+    { ProvenanceTracker },
+    { ControlPlaneBrain },
+  ] = await Promise.all([
+    load('./packages/platform-runtime/src/index.ts'),
+    load('./packages/mission-runtime/src/dag.ts'),
+    load('./services/policy-engine/src/index.ts'),
+    load('./packages/capability-fabric/src/index.ts'),
+    load('./packages/sdks/sdk-capability/src/index.ts'),
+    load('./services/scheduler/src/index.ts'),
+    load('./packages/mission-runtime/src/index.ts'),
+    load('./services/artifact-service/src/index.ts'),
+    load('./packages/provenance/src/index.ts'),
+    load('./services/control-plane/src/index.ts'),
+  ]);
 
   const platform = new PlatformRuntime();
   const session = await platform.createSession('dev-user-1', 'org-aurexon');
-  console.log(`[Step 1]: Created Session ${session.sessionId} (Role: ${session.role})`);
+  assert.equal(session.organizationId, 'org-aurexon');
+  assert.equal(session.tenantId, 'tenant-org-aurexon');
+  assert.equal(session.role, 'developer');
 
   const planner = new MissionDAGPlanner();
   const dag = await planner.buildParallelDAG('Implement JWT Authentication');
-  console.log(`[Step 2]: Generated ${dag.length}-node Execution DAG across parallel branches.`);
+  assert.equal(dag.length, 6);
+  assert.ok(dag.some((node) => node.agentRole === 'security'));
+  assert.ok(dag.some((node) => node.status === 'completed'));
 
-  const policyEngine = new PolicyEngine();
-  const policyCheck = await policyEngine.evaluateAction('execute_mission_dag');
-  console.log(`[Step 3]: Policy & Governance checks PASSED.`);
+  const policy = new PolicyEngine();
+  assert.deepEqual(await policy.evaluateAction('execute_mission_dag'), { allowed: true });
 
   const fabric = new CapabilityFabric();
-  fabric.registerCapability({
+  const capability = createCapability({
     id: 'cap-jwt-backend',
     name: 'JWT Backend Generator',
-    type: 'agent'
+    type: 'agent',
+    version: '1.0.0',
+    execute: async () => ({ status: 'ok' }),
   });
+  fabric.registerCapability(capability);
+  assert.equal(fabric.discoverCapabilities().length, 1);
 
   const scheduler = new FleetScheduler();
-  const workerNode = await scheduler.scheduleMissionTask({ id: 'm-jwt' }, 'Backend JWT Implementation');
-  console.log(`[Step 4]: Scheduled execution on worker node ${workerNode.nodeId} (${workerNode.nodeType}).`);
+  const worker = await scheduler.scheduleMissionTask(
+    {
+      id: 'm-jwt',
+      title: 'Implement JWT Authentication',
+      goal: 'Add secure JWT endpoints',
+      organizationId: session.organizationId,
+      workspaceId: 'workspace-public',
+      status: 'scheduled',
+      createdAt: new Date().toISOString(),
+    },
+    'Backend JWT Implementation',
+  );
+  assert.ok(worker.nodeId.length > 0);
+  assert.ok(['gpu_node', 'sandbox_cluster', 'cloud_worker', 'laptop'].includes(worker.nodeType));
+  assert.equal(worker.status, 'idle');
 
   const missionRuntime = new MissionRuntime();
-  await missionRuntime.executeMission({
+  const mission = await missionRuntime.executeMission({
     id: 'm-jwt',
     title: 'Implement JWT Authentication',
-    goal: 'Add secure JWT endpoints'
+    goal: 'Add secure JWT endpoints',
+    status: 'draft',
+    executionGraph: dag.map((node) => node.name),
+    artifactsGenerated: [],
   });
+  assert.equal(mission.status, 'completed');
+  assert.equal(mission.executionGraph.length, dag.length);
 
   const artifactService = new ArtifactService();
-  await artifactService.storeArtifact({
+  const artifact = await artifactService.storeArtifact({
     id: 'art-jwt-1',
-    path: 'src/auth/jwt.ts'
+    missionId: 'm-jwt',
+    type: 'code',
+    path: 'src/auth/jwt.ts',
+    version: 1,
   });
-
-  const evaluator = new EvaluationEngine();
-  const evalResult = await evaluator.evaluateMissionOutput('m-jwt', {});
-  console.log(`[Step 5]: Evaluation passed with quality score: ${evalResult.score * 100}%`);
+  assert.equal(artifact.path, 'src/auth/jwt.ts');
+  assert.equal(artifactService.getArtifact(artifact.id)?.version, 1);
 
   const provenance = new ProvenanceTracker();
   provenance.recordProvenance({
-    artifactId: 'art-jwt-1',
-    signature: 'sig-sha256-verified'
+    artifactId: artifact.id,
+    missionId: 'm-jwt',
+    executionId: 'exec-jwt-1',
+    agentRole: 'reviewer',
+    modelId: 'qwen3-coder',
+    toolsInvoked: ['workspace_index', 'mission_plan'],
+    policiesApplied: ['execute_mission_dag'],
+    timestamp: new Date().toISOString(),
+    signature: 'sig-sha256-verified',
   });
+  assert.equal(provenance.getProvenance(artifact.id)?.signature, 'sig-sha256-verified');
 
   const controlPlane = new ControlPlaneBrain();
   const twinState = await controlPlane.getDigitalTwinState(session.organizationId);
-  console.log(`[Step 6]: Updated Digital Twin state. Active Knowledge Nodes: ${twinState.globalKnowledgeNodes}`);
-
-  console.log("\n=========================================================");
-  console.log("REFERENCE IMPLEMENTATION #1 EXECUTED SUCCESSFULLY ✅");
-  console.log("=========================================================");
-}
-
-runJWTAuthTest();
+  assert.equal(twinState.orgId, session.organizationId);
+  assert.ok(twinState.globalKnowledgeNodes > 40000);
+});

@@ -1,0 +1,20 @@
+{
+  "name": "@platform/artifact-service",
+  "version": "0.1.0",
+  "description": "Versioned artifact storage with provenance tracking",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc --build",
+    "dev": "ts-node-dev src/index.ts",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@sajja/forge-contracts": "^0.9.0-rc1",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "ts-node-dev": "^2.3.0",
+    "typescript": "^5.5.0"
+  }
+}

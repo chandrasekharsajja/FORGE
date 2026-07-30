@@ -1,0 +1,43 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022"],
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "useUnknownInCatchVariables": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "composite": true,
+    "paths": {
+      "@sajja/contracts": ["./packages/contracts/src"],
+      "@sajja/core-agent": ["./packages/core-agent/src"],
+      "@sajja/capability-fabric": ["./packages/capability-fabric/src"],
+      "@sajja/provenance": ["./packages/provenance/src"],
+      "@sajja/tool-registry": ["./packages/tool-registry/src"],
+      "@sajja/agent-registry": ["./packages/agent-registry/src"],
+      "@platform/security": ["./packages/security/src"],
+      "@platform/execution-engine": ["./services/execution-engine/dist"],
+      "@platform/policy-engine": ["./services/policy-engine/dist"],
+      "@platform/memroy-service": ["./services/memory-service/dist"],
+      "@platform/artifact-service": ["./services/artifact-service/dist"]
+    }
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    ".next",
+    "coverage"
+  ]
+}

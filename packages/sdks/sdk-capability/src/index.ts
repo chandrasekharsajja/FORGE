@@ -1,4 +1,4 @@
-import { CapabilityDescriptor, CapabilityType } from '@platform/capability-fabric';
+import type { CapabilityDescriptor, CapabilityType } from '../../../capability-fabric/src/index.ts';
 
 export function createCapability(config: {
   id: string;

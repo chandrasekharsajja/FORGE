@@ -1,40 +1,153 @@
-import React from 'react';
-import { MonacoEditorContainer } from '../components/Editor/MonacoEditorContainer';
+import Link from 'next/link';
 import { AgentSidePanel } from '../components/AgentSidePanel';
+import { ExplorerPanel } from '../components/ExplorerPanel';
+import { MonacoEditorContainer } from '../components/Editor/MonacoEditorContainer';
+import { MissionBoard } from '../components/MissionBoard';
+import { RunbookPanel } from '../components/RunbookPanel';
+import { SystemMap } from '../components/SystemMap';
 import { TerminalPanel } from '../components/Terminal/TerminalPanel';
+import { buildDashboardSnapshot } from '../lib/dashboard-model';
 
-export default function UnifiedIDEPage() {
+export default async function UnifiedIDEPage() {
+  const snapshot = await buildDashboardSnapshot();
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', overflow: 'hidden', background: '#1e1e1e' }}>
-      {/* Top Header Bar */}
-      <div style={{ height: '36px', background: '#3c3c3c', color: '#ccc', display: 'flex', alignItems: 'center', padding: '0 12px', fontSize: '13px', borderBottom: '1px solid #222' }}>
-        <strong>OpenCode Autonomous AI Platform</strong> &nbsp; | &nbsp; Model: Qwen3-Coder (via LiteLLM Router)
-      </div>
+    <>
+      <a href="#main-content" className="skip-link">
+        Skip to content
+      </a>
 
-      {/* Main Workspace Layout */}
-      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        {/* Left Directory Sidebar */}
-        <div style={{ width: '220px', background: '#252526', borderRight: '1px solid #333', color: '#ccc', padding: '10px', fontSize: '13px' }}>
-          <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>EXPLORER</div>
-          <div>📁 apps/unified-ide</div>
-          <div>📁 services/orchestrator</div>
-          <div>📁 services/model-router</div>
-          <div>📁 services/memory-service</div>
-          <div>📁 services/knowledge-service</div>
-          <div>📁 services/execution-engine</div>
-          <div>📁 services/mcp-gateway</div>
-          <div>📄 docker-compose.yml</div>
+      <div className="forge-shell">
+        <header className="topbar">
+          <div className="brand-block">
+            <div className="brand-mark">FG</div>
+            <div className="brand-copy">
+              <strong>FORGE unified IDE</strong>
+              <span>
+                Public mission cockpit for a repo that now speaks honestly about what ships today
+                and what is still prototype work.
+              </span>
+            </div>
+          </div>
+
+          <nav className="topbar-actions" aria-label="Primary">
+            <a
+              href="https://github.com/chandrasekharsajja/FORGE"
+              target="_blank"
+              rel="noreferrer"
+              className="nav-chip"
+            >
+              GitHub repo
+            </a>
+            <Link href="/privacy" className="nav-chip">
+              Privacy
+            </Link>
+            <Link href="/terms" className="nav-chip">
+              Terms
+            </Link>
+          </nav>
+        </header>
+
+        <div className="shell-grid">
+          <ExplorerPanel
+            sections={snapshot.explorerSections}
+            note={snapshot.governanceNotes[0] ?? {
+              title: 'Live snapshot',
+              detail: 'The workspace view is populated from the current service graph.',
+            }}
+          />
+
+          <main id="main-content" className="workspace-column">
+            <section className="hero-panel">
+              <div className="hero-grid">
+                <div className="hero-copy">
+                  <span className="eyebrow">Public release pass</span>
+                  <h1>Plan, edit, verify, and present the work from one command deck.</h1>
+                  <p>
+                    The studio shell now behaves like a real app instead of a static mock. It
+                    gives the repo a credible front door while the deeper service layer continues
+                    to evolve behind it.
+                  </p>
+
+                  <div className="hero-actions">
+                    <a
+                      href="https://github.com/chandrasekharsajja/FORGE/blob/main/README.md"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="primary-button"
+                    >
+                      Review public README
+                    </a>
+                    <a href="#release-board" className="ghost-button">
+                      Open release board
+                    </a>
+                  </div>
+                </div>
+
+                <div className="stats-grid">
+                  {snapshot.overviewStats.map((stat) => (
+                    <article key={stat.label} className="stat-card">
+                      <span>{stat.label}</span>
+                      <strong>{stat.value}</strong>
+                      <p>{stat.caption}</p>
+                    </article>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            <div className="workspace-grid">
+              <div className="stack">
+                <MonacoEditorContainer editorFiles={snapshot.editorFiles} />
+                <TerminalPanel
+                  terminalLines={snapshot.terminalLines}
+                  verificationChecks={snapshot.verificationChecks}
+                  generatedArtifacts={snapshot.generatedArtifacts}
+                />
+              </div>
+
+              <div className="stack">
+                <MissionBoard
+                  missionTracks={snapshot.missionTracks}
+                  releaseChecklist={snapshot.releaseChecklist}
+                />
+                <SystemMap
+                  serviceHealth={snapshot.serviceHealth}
+                  governanceNotes={snapshot.governanceNotes}
+                />
+                <RunbookPanel quickStartCards={snapshot.quickStartCards} />
+              </div>
+            </div>
+          </main>
+
+          <AgentSidePanel promptSuggestions={snapshot.agentPromptSuggestions} />
         </div>
 
-        {/* Center Editor + Terminal Stack */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          <MonacoEditorContainer />
-          <TerminalPanel />
-        </div>
-
-        {/* Right Cursor/Antigravity Agent Command Center */}
-        <AgentSidePanel />
+        <footer className="shell-footer">
+          <span>
+            FORGE is strongest today as a polished shell plus architectural scaffolding. That is
+            the story this workspace now tells clearly.
+          </span>
+          <div className="footer-links">
+            <a
+              href="https://github.com/chandrasekharsajja/FORGE/blob/main/Docs/governance/PROJECT-GOVERNANCE.md"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-link"
+            >
+              Governance
+            </a>
+            <a
+              href="https://github.com/chandrasekharsajja/FORGE/blob/main/SECURITY.md"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-link"
+            >
+              Security
+            </a>
+          </div>
+        </footer>
       </div>
-    </div>
+    </>
   );
 }

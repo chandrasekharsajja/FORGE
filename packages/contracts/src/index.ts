@@ -18,14 +18,14 @@ export interface AgentContract {
 export interface ToolContract {
   name: string;
   version: string;
-  schema: Record<string, any>;
-  execute: (args: Record<string, any>) => Promise<any>;
+  schema: Record<string, unknown>;
+  execute: (args: Record<string, unknown>) => Promise<unknown>;
 }
 
 export interface PolicyContract {
   ruleId: string;
   actionPattern: string;
-  enforce: (context: any) => Promise<{ allowed: boolean; reason?: string }>;
+  enforce: (context: Record<string, unknown>) => Promise<{ allowed: boolean; reason?: string }>;
 }
 
 export interface ArtifactContract {
