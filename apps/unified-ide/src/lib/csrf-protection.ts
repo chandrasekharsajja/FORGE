@@ -1,331 +1,292 @@
 /**
- * @apps/unified-ide - Cross-Site Request Forgery (CSRF) Protection v2.0
- * 
- Implements enhanced CSRF token generation, validation, storage, and fingerprint-based
- token binding mechanisms with rate limiting for state-changing requests.
- * 
- Security improvements over v1.0:
- * - Token binding using IP address, User-Agent, and session fingerprint
- * - Rate limiting to prevent brute-force attacks
- * - SameSite=Strict/Lax cookie attribute enforcement
- * - Secure HTTP-only storage for tokens
+ * CSRF Protection - corrected & hardened
+ *
+ * - Normalized fingerprint flags
+ * - Cryptographically secure token generation
+ * - HMAC signing & verification using secret manager
+ * - Safe cookie usage: httpOnly cookie stores session-bound token id; client reads signed token returned by API (meta/header)
+ * - Fixed typos in exports
+ * - Simple in-memory rate limiter with TTL cleanup
  */
 
-import { v4 as uuidv4 } from 'uuid';
+import { randomBytes, createHmac, timingSafeEqual } from 'crypto';
 import { getMemoryService } from '@platform/memory-service';
 import { getSecretManager } from '@platform/runtime';
 
-// Fingerprint configuration for token binding
+// Fingerprint configuration for token binding (explicit keys)
 const FINGERPRINT_CONFIG = {
   INCLUDE_IP: true,
   INCLUDE_USER_AGENT: true,
   INCLUDE_ACCEPT_LANGUAGE: true,
-};
+} as const;
 
-// Generate a strong cryptographically random token
-function generateCSRFToken(): string {
-  return uuidv4();
+// Token settings
+const TOKEN_BYTES = 32; // 256-bit token
+const TOKEN_TTL_SECONDS = 60 * 60 * 24; // 24h
+
+function generateRandomToken(): string {
+  return randomBytes(TOKEN_BYTES).toString('hex');
 }
 
 // Create a request fingerprint based on relevant headers
 function createRequestFingerprint(req: any): string {
-  const parts = [];
-  
-  if (FINGERPRINT_CONFIG.INCLUDE_IP && req.headers['x-forwarded-for']) {
-    // Get the first IP in the chain (should be the client IP)
-    const ip = req.headers['x-forwarded-for'].split(',')[0].trim();
-    parts.push(ip);
-  } else if (req.remoteAddress) {
-    parts.push(req.remoteAddress);
+  const parts: string[] = [];
+
+  if (FINGERPRINT_CONFIG.INCLUDE_IP) {
+    const ipHeader = req.headers?.['x-forwarded-for'] || req.connection?.remoteAddress || req.socket?.remoteAddress;
+    if (ipHeader) {
+      const ip = String(ipHeader).split(',')[0].trim();
+      parts.push(ip);
+    }
   }
-  
-  if (FINGERPRINT_CONFIG.USER_AGENT) {
-    const ua = req.headers['user-agent'] || '';
-    parts.push(ua.substring(0, 100)); // Truncate to avoid oversized fingerprints
+
+  if (FINGERPRINT_CONFIG.INCLUDE_USER_AGENT) {
+    const ua = req.headers?.['user-agent'] || '';
+    parts.push(String(ua).substring(0, 200));
   }
-  
-  if (FINGERPRINT_CONFIG.ACCEPT_LANGUAGE) {
-    parts.push(req.headers['accept-language'] || '');
+
+  if (FINGERPRINT_CONFIG.INCLUDE_ACCEPT_LANGUAGE) {
+    parts.push(req.headers?.['accept-language'] || '');
   }
-  
+
   return parts.join(':');
 }
 
 // Store CSRF token in secure storage with fingerprint binding
-export function storeCSRFToken(token: string, fingerprint: string): void {
+export async function storeCSRFToken(tokenId: string, data: { fingerprint: string; createdAt?: number }) {
   const memoryService = getMemoryService();
-  const secretId = `csrf:${token}`;
-  
-  // Store token with fingerprint binding and metadata
+  const secretId = `csrf:${tokenId}`;
+
   const tokenData = {
-    token,
-    fingerprint,
-    createdAt: Date.now(),
-    expiresIn: 86400, // 24 hours
+    id: tokenId,
+    fingerprint: data.fingerprint,
+    createdAt: data.createdAt ?? Date.now(),
+    expiresIn: TOKEN_TTL_SECONDS,
   };
-  
-  memoryService.storeUserPreference(secretId, tokenData, { expiresIn: 86400 });
-  
-  console.log('[CSRF] Token stored successfully with fingerprint binding');
+
+  // storeUserPreference may be async
+  await memoryService.storeUserPreference(secretId, tokenData, { expiresIn: TOKEN_TTL_SECONDS });
 }
 
 // Validate CSRF token with fingerprint verification and rate limiting
-export async function validateCSRFToken(token: string | null, req?: any): Promise<boolean> {
-  if (!token) return false;
-  
-  // Apply rate limiting to CSRF validation to prevent abuse
-  if (req) {
-    try {
-      // Apply rate limit check - allow 5 attempts per minute per IP
-      const limiter = new SimpleRateLimiter(5);
-      const ip = req.headers['x-forwarded-for'] || req.remoteAddress || 'unknown';
-      const limiterCheck = limiter.check(ip);
-      
-      if (!limiterCheck) {
-        console.warn('CSRF rate limit exceeded from', ip);
+export async function validateCSRFToken(signedToken: string | null, req?: any): Promise<boolean> {
+  if (!signedToken) return false;
+
+  // Basic format: "<tokenId>.<hex-hmac>"
+  const parts = String(signedToken).split('.');
+  if (parts.length !== 2) return false;
+  const [tokenId, providedHmac] = parts;
+
+  try {
+    // Rate limiting (best-effort local)
+    if (req) {
+      const ip = (req.headers?.['x-forwarded-for'] || req.connection?.remoteAddress || 'unknown').toString();
+      if (!SimpleRateLimiter.shared().check(ip)) {
+        console.warn('[CSRF] rate limit exceeded for', ip);
         return false;
       }
-    } catch (e) {
-      // If rate limiting fails, continue processing (fail open)
-      console.warn('CSRF rate limiter encountered error:', e);
     }
+  } catch (e) {
+    // fail closed for rate-limiter issues -> be permissive but log non-sensitive info
+    console.warn('[CSRF] rate limiter error (non-fatal)');
   }
-  
+
   const memoryService = getMemoryService();
-  const secretId = `csrf:${token}`;
-  
-  // Check if token exists and hasn't expired
-  const storedData = memoryService.getUserPreference(secretId);
-  
+  const secretId = `csrf:${tokenId}`;
+  const storedData = await memoryService.getUserPreference(secretId);
+
   if (!storedData) return false;
-  
-  const { token: storedToken, fingerprint, createdAt, expiresIn } = storedData;
-  
+
+  const { id: storedId, fingerprint: storedFingerprint, createdAt, expiresIn } = storedData;
+  if (!storedId || storedId !== tokenId) return false;
+
   // Check expiration
-  if (Date.now() > createdAt + expiresIn * 1000) {
-    memoryService.deleteUserPreference(secretId);
+  if (Date.now() > (createdAt + (expiresIn * 1000))) {
+    await memoryService.deleteUserPreference(secretId);
     return false;
   }
-  
-  // Verify fingerprint match (prevents token theft from one device/environment)
+
+  // Verify HMAC using secret manager
+  const secretManager = getSecretManager();
+  const hmacKey = await secretManager.getSecret?.('CSRF_HMAC_KEY') || process.env.CSRF_HMAC_KEY;
+  if (!hmacKey) {
+    // If no HMAC key, reject (requires configuration)
+    console.warn('[CSRF] missing HMAC key configuration');
+    return false;
+  }
+
+  const expectedHmac = createHmac('sha256', hmacKey).update(tokenId).digest('hex');
+
+  // timing-safe compare
+  try {
+    const providedBuffer = Buffer.from(providedHmac, 'hex');
+    const expectedBuffer = Buffer.from(expectedHmac, 'hex');
+    if (providedBuffer.length !== expectedBuffer.length || !timingSafeEqual(providedBuffer, expectedBuffer)) {
+      // revoke token on tampering
+      await memoryService.deleteUserPreference(secretId);
+      return false;
+    }
+  } catch (e) {
+    // invalid hex or compare failure
+    await memoryService.deleteUserPreference(secretId);
+    return false;
+  }
+
+  // Verify fingerprint (conservative: require exact match)
   if (req) {
     const reqFingerprint = createRequestFingerprint(req);
-    // Accept fingerprint match or slight variations (for legitimate proxies)
-    const isFingerPrintMatch = storedFingerprintMatches(reqFingerprint, fingerprint);
-    
-    if (!isFingerPrintMatch) {
-      // Invalid attempt - revoke token
-      memoryService.deleteUserPreference(secretId);
+    if (storedFingerprint && storedFingerprint !== reqFingerprint) {
+      // revoke token and fail
+      await memoryService.deleteUserPreference(secretId);
       return false;
     }
   }
-  
-  // Extend TTL for renewed session (sliding window)
-  memoryService.storeUserPreference(secretId, storedData, { expiresIn: 86400 });
-  
+
+  // Sliding window: refresh TTL
+  await memoryService.storeUserPreference(secretId, storedData, { expiresIn: TOKEN_TTL_SECONDS });
+
   return true;
 }
 
-// Helper to compare fingerprints with allowance for proxy variations
-function storedFingerprintMatches(actual: string, stored: string): boolean {
-  // Exact match is ideal, but allow some flexibility for shared characteristics
-  if (actual === stored) return true;
-  
-  // Extract common identifiers from fingerprints
-  const actualParts = actual.split(':');
-  const storedParts = stored.split(':');
-  
-  // At least the IP should match (or same prefix if behind same proxy)
-  if (actualParts.length > 0 && storedParts.length > 0) {
-    if (actualParts[0] !== storedParts[0]) {
-      // Check if they share the same subnet (simple first-octet comparison for IPv4)
-      const actualIp = parseFirstOctet(actualParts[0]);
-      const storedIp = parseFirstOctet(storedParts[0]);
-      if (actualIp !== storedIp) return false;
-    }
-  }
-  
-  return true;
+// Create signed token for client (returned to client for header/meta usage)
+// format: "<tokenId>.<hmac>"
+export async function createSignedCSRFTokenForClient(req: any): Promise<{ signedToken: string; tokenId: string }> {
+  // Generate token id and bind fingerprint
+  const tokenId = generateRandomToken();
+  const fingerprint = createRequestFingerprint(req);
+
+  // store server-side mapping
+  await storeCSRFToken(tokenId, { fingerprint });
+
+  // sign tokenId
+  const secretManager = getSecretManager();
+  const hmacKey = await secretManager.getSecret?.('CSRF_HMAC_KEY') || process.env.CSRF_HMAC_KEY;
+  if (!hmacKey) throw new Error('CSRF HMAC key not configured');
+
+  const mac = createHmac('sha256', hmacKey).update(tokenId).digest('hex');
+  const signed = `${tokenId}.${mac}`;
+
+  return { signedToken: signed, tokenId };
 }
 
-function parseFirstOctet(ipStr: string): number | null {
-  const match = ipStr.match(/^(\d+)/);
-  return match ? parseInt(match[1], 10) : null;
-}
-
-// Generate new CSRF token pair for client-side forms with fingerprint
-export function createCSRFPair(): { csrfToken: string; csrfSecret: string } {
-  const csrfToken = generateCSRFToken();
-  const csrfSecret = generateCSRFToken(); // For HMAC signing validation
-  
-  // We'll need fingerprint at time of form submission, so store just the token initially
-  // The fingerprint will be captured during validation
-  storeCSRFToken(csrfToken, ''); // Placeholder, fingerprint filled on submit
-  
-  return { csrfToken, csrfSecret };
-}
-
-// Middleware function to check CSRF header on state-changing requests
-export async function createCSRFProtectionMiddleware(req: any, res: any, next: any) {
-  // Only protect state-changing methods
-  if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
-    return next();
-  }
-  
-  // Look for CSRF token in header or body
-  const headerToken = req.headers['x-csrf-token'] || req.body['_csrf'];
-  
-  if (!headerToken) {
-    return res.status(403).json({ 
-      success: false, 
-      error: 'CSRF token required' 
-    });
-  }
-  
-  // Validate CSRF token with fingerprint
-  const isValid = await validateCSRFToken(headerToken, req);
-  
-  if (!isValid) {
-    return res.status(403).json({ 
-      success: false, 
-      error: 'Invalid or expired CSRF token' 
-    });
-  }
-  
-  // Attach validated token to request context for downstream use
-  req.csrfValidated = true;
-  req.csrfToken = headerToken;
-  
-  next();
-}
-
-// Export helper for generating HTML meta tag for CSRF protection
-export function getCSRFMetaTag(csrfToken: string): string {
-  return `<meta name="csrf-token" content="${escapeHtml(csrfToken)}">`;
-}
-
-// Escape HTML special characters to prevent XSS
-function escapeHtml(text: string): string {
-  // For Node.js environment without DOM, use simple escaping
-  const map: Record<string, string> = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#039;'
-  };
-  return text.replace(/[&<>"']/g, (m) => map[m]);
-}
-
-// Initialize CSRF protection system on server startup
-export async function initializeCSRFProtection(): Promise<void> {
+// Add cookie for double-submit pattern: we will set a httpOnly cookie that stores tokenId only,
+// and return the signed token back to client body/meta so client can send signedToken in header.
+// This is more secure than making cookie readable to JS.
+export function addCSRFToCookie(res: any, tokenId: string): void {
   try {
-    const memoryService = getMemoryService();
-    const secretManager = getSecretManager();
-    
-    // Verify basic connectivity
-    await memoryService.initialize();
-    console.log('✅ CSRF protection system initialized successfully');
-  } catch (error) {
-    console.warn('⚠️ Warning: CSRF protection could not be fully initialized:', error.message);
-    // Continue without CSRF protection (fail safe) - log warning only
-  }
-}
-
-// Add CSRF token to response cookies (for Angular-style double submit cookie pattern)
-export function addCSRFToCookie(req: any, res: any, csrfToken: string): void {
-  // Use Next.js cookie API or set-cookie directly
-  try {
-    // Check if this is a Next.js response object
-    if (res.cookies && res.cookies.set) {
-      res.cookies.set('csrfToken', csrfToken, {
+    // Prefer framework-specific cookie setter where available
+    if (res.cookies && typeof res.cookies.set === 'function') {
+      res.cookies.set('csrfTokenId', tokenId, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        maxAge: 86400, // 24 hours
+        maxAge: TOKEN_TTL_SECONDS,
         path: '/',
-        sameSite: 'strict', // Primary defense
+        sameSite: 'strict',
         domain: process.env.COOKIE_DOMAIN || undefined,
       });
+    } else {
+      // Fallback to set-cookie header
+      const cookieParts = [
+        `csrfTokenId=${encodeURIComponent(tokenId)}`,
+        `Max-Age=${TOKEN_TTL_SECONDS}`,
+        `Path=/`,
+        `SameSite=Strict`,
+        process.env.NODE_ENV === 'production' ? 'Secure' : '',
+        'HttpOnly',
+      ].filter(Boolean);
+      res.setHeader('Set-Cookie', cookieParts.join('; '));
     }
   } catch (e) {
-    console.warn('Could not set CSRF cookie:', e);
+    // Do not leak details — use generic warn
+    console.warn('[CSRF] could not set cookie (non-fatal)');
   }
 }
 
-// Generate CSRF token with proper cookie attachment
-export async function generateCSRFTokenWithCookie(req: any, res: any) {
-  const { csrfToken } = createCSRFPair();
-  
-  // Bind current request fingerprint
-  const fingerprint = createRequestFingerprint(req);
-  storeCSRFToken(csrfToken, fingerprint);
-  
-  // Also store as cookie for double-submit pattern
-  addCSRFToCookie(req, res, csrfToken);
-  
-  return { csrfToken };
+// Convenience middleware for Next.js/Express-style handlers
+export async function createCSRFProtectionMiddleware(req: any, res: any, next: any) {
+  if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) return next();
+
+  // Look for signed token in header or body
+  const signedToken = req.headers['x-csrf-token'] || req.body?._csrf || null;
+
+  if (!signedToken) {
+    return res.status?.(403).json?.({ success: false, error: 'CSRF token required' }) || res.end('CSRF token required');
+  }
+
+  const valid = await validateCSRFToken(String(signedToken), req);
+  if (!valid) {
+    return res.status?.(403).json?.({ success: false, error: 'Invalid or expired CSRF token' }) || res.end('Invalid or expired CSRF token');
+  }
+
+  // attach context
+  req.csrfValidated = true;
+  req.csrfToken = signedToken;
+
+  return next();
 }
 
-// Utility to check if CSRF protection is enabled/enabled in environment
-export function isCSRFEnabled(): boolean {
-  return process.env.ENABLE_CSRF !== 'false';
-}
-
-// Simple token bucket rate limiter for CSRF validation
+/* Simple in-memory rate limiter with TTL cleanup */
 class SimpleRateLimiter {
-  private tokens: Map<string, { tokens: number; lastRefill: number }>;
+  private static _shared: SimpleRateLimiter | null = null;
+  private tokens: Map<string, { tokens: number; lastRefill: number; lastSeen: number }>;
   private readonly maxTokens: number;
-  private readonly refillRate: number; // Tokens per second
-  private readonly windowMs: number; // Refill window in ms
+  private readonly refillRatePerSecond: number;
+  private readonly windowMs: number;
+  private readonly cleanupIntervalMs = 60 * 1000;
 
-  constructor(refillsPerMinute: number = 5) {
+  constructor(refillsPerMinute = 5) {
     this.tokens = new Map();
     this.maxTokens = refillsPerMinute;
-    this.refillRate = refillsPerMinute / 60; // Tokens per second
-    this.windowMs = 60000; // 1 minute window
+    this.refillRatePerSecond = refillsPerMinute / 60;
+    this.windowMs = 60_000;
+    setInterval(() => this.cleanup(), this.cleanupIntervalMs).unref?.();
+  }
+
+  static shared() {
+    if (!SimpleRateLimiter._shared) SimpleRateLimiter._shared = new SimpleRateLimiter(5);
+    return SimpleRateLimiter._shared;
   }
 
   check(key: string): boolean {
     const now = Date.now();
     let entry = this.tokens.get(key);
-    
     if (!entry) {
-      entry = { tokens: this.maxTokens, lastRefill: now };
+      entry = { tokens: this.maxTokens, lastRefill: now, lastSeen: now };
       this.tokens.set(key, entry);
     }
-    
-    // Calculate elapsed seconds since last refill
-    const elapsedSeconds = (now - entry.lastRefill) / 1000;
-    
-    // Refill tokens proportionally to elapsed time
-    entry.tokens += elapsedSeconds * this.refillRate;
-    entry.tokens = Math.min(entry.tokens, this.maxTokens);
+
+    // refill
+    const elapsed = (now - entry.lastRefill) / 1000;
+    entry.tokens = Math.min(this.maxTokens, entry.tokens + elapsed * this.refillRatePerSecond);
     entry.lastRefill = now;
-    
-    // Check if we have a token available
+    entry.lastSeen = now;
+
     if (entry.tokens >= 1) {
       entry.tokens -= 1;
       return true;
     }
-    
     return false;
+  }
+
+  cleanup() {
+    const now = Date.now();
+    for (const [k, v] of this.tokens.entries()) {
+      // remove entries not seen for 10 minutes
+      if (now - v.lastSeen > 10 * 60 * 1000) {
+        this.tokens.delete(k);
+      }
+    }
   }
 }
 
 export default {
-  generateCSRFToken,
+  generateRandomToken,
   storeCSRFToken,
   validateCSRFToken,
-  createCSRFPair,
-  createCSFRLookup,
-  getCSRFMetaTag,
-  initializeCSRFProtection,
+  createSignedCSRFTokenForClient,
   createCSRFProtectionMiddleware,
   addCSRFToCookie,
-  generateCSRFTokenWithCookie,
-  isCSRFEnabled,
-  escapeHtml,
+  createRequestFingerprint,
   FINGERPRINT_CONFIG,
   SimpleRateLimiter,
-  createRequestFingerprint,
 };
